@@ -6,9 +6,9 @@ interface ITaskOptions {
 
 type States = "initial" | "pending" | "resolved" | "rejected";
 
-interface ITaskState<T> {
+interface ITaskState<TReturn> {
   state: States;
-  result: T;
+  result: TReturn;
   error: any;
   initial: boolean;
   pending: boolean;
@@ -16,17 +16,23 @@ interface ITaskState<T> {
   rejected: boolean;
 }
 
-interface ITask<T> extends ITaskState<T> {
-  (): Promise<T>;
+type Awaited<T> = T extends PromiseLike<infer U> ? Awaited<U> : T;
+type AsyncFn = (...args: any[]) => Promise<any>;
+
+interface ITask<Function extends AsyncFn> extends ITaskState<Awaited<ReturnType<Function>>> {
+  (...args: Parameters<Function>): ReturnType<Function>;
 }
 
 const defaultOptions: ITaskOptions = {
   throw: false
 }
 
-const task = <T>(fn: () => Promise<T>, options: ITaskOptions = defaultOptions) => {
+const task = <Function extends AsyncFn>(
+  fn: Function,
+  options: ITaskOptions = defaultOptions
+) => {
 
-  const state: ITaskState<T> = observable({
+  const state: ITaskState<Awaited<ReturnType<Function>>> = observable({
     state: "initial",
     result: undefined,
     error: undefined,
@@ -44,7 +50,7 @@ const task = <T>(fn: () => Promise<T>, options: ITaskOptions = defaultOptions) =
     }
   });
 
-  const wrapper = async () => {
+  const wrapper = async (...args: Parameters<Function>) => {
     try {
 
       runInAction(() => {
@@ -53,7 +59,7 @@ const task = <T>(fn: () => Promise<T>, options: ITaskOptions = defaultOptions) =
         state.error = undefined;
       });
 
-      const result = await fn();
+      const result = await fn(...args);
 
       runInAction(() => {
         state.state = "resolved";
@@ -83,7 +89,7 @@ const task = <T>(fn: () => Promise<T>, options: ITaskOptions = defaultOptions) =
   Object.defineProperty(wrapper, "resolved", { get: () => state.resolved });
   Object.defineProperty(wrapper, "rejected", { get: () => state.rejected });
 
-  return wrapper as ITask<T>;
+  return wrapper as ITask<Function>;
 }
 
 export default task;
