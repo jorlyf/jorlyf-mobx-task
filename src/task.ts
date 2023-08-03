@@ -49,6 +49,8 @@ const task = <T>(fn: () => Promise<T>, options: ITaskOptions = defaultOptions) =
 
       runInAction(() => {
         state.state = "pending";
+        state.result = undefined;
+        state.error = undefined;
       });
 
       const result = await fn();
@@ -60,7 +62,7 @@ const task = <T>(fn: () => Promise<T>, options: ITaskOptions = defaultOptions) =
 
       return state.result;
 
-    } catch (error) {
+    } catch (error: any) {
       runInAction(() => {
         state.state = "rejected";
         state.result = undefined;
